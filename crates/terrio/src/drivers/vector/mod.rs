@@ -82,7 +82,7 @@ pub(crate) fn read(path: &str, driver: VectorDriver, options: &VectorOpenOptions
         VectorDriver::CSV => vec![csv::read(path, &options.csv)?],
         #[cfg(feature = "parquet")]
         VectorDriver::Parquet => vec![geoparquet::read_filtered(path, options.spatial_filter)?],
-        VectorDriver::Shapefile => vec![shapefile::read(path)?],
+        VectorDriver::Shapefile => vec![shapefile::read(path, &options.shapefile)?],
         VectorDriver::GML => gml::read(path)?,
         VectorDriver::GPX => gpx::read(path)?,
         VectorDriver::KML => kml::read(path)?,
@@ -129,7 +129,7 @@ pub(crate) fn write(layer: &Layer, path: &str, driver: VectorDriver, options: &V
 pub(crate) fn read_bytes(bytes: Vec<u8>, name: &str, driver: VectorDriver, options: &VectorOpenOptions) -> Result<Option<Vec<Layer>>> {
     driver.ensure_built()?;
     if matches!(driver, VectorDriver::Shapefile | VectorDriver::MapInfo) {
-        return read_parts(&bytes, name, driver, &|_: &str| None).map(Some);
+        return read_parts(&bytes, name, driver, &|_: &str| None, options).map(Some);
     }
     let stem = std::path::Path::new(name).file_stem().and_then(|s| s.to_str()).unwrap_or("layer");
     Ok(Some(match driver {
@@ -161,13 +161,19 @@ pub(crate) fn read_bytes(bytes: Vec<u8>, name: &str, driver: VectorDriver, optio
 
 /// Reads a format made of several files from memory: the main file (`.shp`, `.mif`) and its
 /// sidecars, which `sidecar` returns by extension (`dbf`, `prj`, `cpg`, `mid`; lowercase).
-pub(crate) fn read_parts(main: &[u8], name: &str, driver: VectorDriver, sidecar: &dyn Fn(&str) -> Option<Vec<u8>>) -> Result<Vec<Layer>> {
+pub(crate) fn read_parts(
+    main: &[u8],
+    name: &str,
+    driver: VectorDriver,
+    sidecar: &dyn Fn(&str) -> Option<Vec<u8>>,
+    options: &VectorOpenOptions,
+) -> Result<Vec<Layer>> {
     let stem = std::path::Path::new(name).file_stem().and_then(|s| s.to_str()).unwrap_or("layer");
     let text = |ext: &str| sidecar(ext).map(|b| String::from_utf8_lossy(&b).into_owned());
     match driver {
         VectorDriver::Shapefile => {
             let dbf = sidecar("dbf");
-            Ok(vec![shapefile::parse(main, dbf.as_deref(), text("prj").as_deref(), text("cpg").as_deref(), stem)?])
+            Ok(vec![shapefile::parse(main, dbf.as_deref(), text("prj").as_deref(), text("cpg").as_deref(), stem, &options.shapefile)?])
         }
         VectorDriver::MapInfo if crate::formats::extension(name).as_deref() == Some("tab") => {
             let dat = sidecar("dat").ok_or_else(|| crate::Error::InvalidData(format!("'{name}': no .dat file")))?;

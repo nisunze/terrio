@@ -45,7 +45,8 @@ pub struct Args {
     #[arg(long, value_name = "N")]
     overview: Option<usize>,
     /// An open option, as GDAL names it: `KEY=VALUE` (CSV: X_POSSIBLE_NAMES, Y_POSSIBLE_NAMES,
-    /// GEOM_POSSIBLE_NAMES, AUTODETECT_TYPE, KEEP_GEOM_COLUMNS, SEPARATOR; PMTiles, MBTiles and MVT:
+    /// GEOM_POSSIBLE_NAMES, AUTODETECT_TYPE, KEEP_GEOM_COLUMNS, SEPARATOR; Shapefile:
+    /// ORGANIZE_POLYGONS, the methods of GDAL's OGR_ORGANIZE_POLYGONS; PMTiles, MBTiles and MVT:
     /// ZOOM_LEVEL, CLIP).
     #[arg(long = "oo", value_name = "KEY=VALUE")]
     open_options: Vec<String>,
@@ -119,7 +120,7 @@ fn stream_options(a: &Args) -> terrio::Result<Option<terrio::stream::ConvertOpti
     let translate = a.vector.to_options(t_srs)?;
     let mut open = VectorOpenOptions { layers: a.layers.clone(), spatial_filter: a.vector.spatial_hint(&a.input), ..Default::default() };
     for (k, v) in key_values(&a.open_options)? {
-        if !open.csv.set(k, v)? && !open.tiles.set(k, v)? {
+        if !open.csv.set(k, v)? && !open.shapefile.set(k, v)? && !open.tiles.set(k, v)? {
             return Err(terrio::Error::InvalidArgument(format!("unknown open option '{k}'")));
         }
     }
@@ -233,7 +234,7 @@ pub fn run(mut a: Args) -> terrio::Result<()> {
         let spatial_filter = a.vector.spatial_hint(&a.input);
         let mut options = VectorOpenOptions { layers: a.layers.clone(), spatial_filter, ..Default::default() };
         for (k, v) in key_values(&a.open_options)? {
-            if !options.csv.set(k, v)? && !options.tiles.set(k, v)? {
+            if !options.csv.set(k, v)? && !options.shapefile.set(k, v)? && !options.tiles.set(k, v)? {
                 return Err(terrio::Error::InvalidArgument(format!("unknown open option '{k}'")));
             }
         }

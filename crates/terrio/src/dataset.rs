@@ -252,6 +252,8 @@ pub struct VectorOpenOptions {
     pub layers: Vec<String>,
     /// How to read CSV files.
     pub csv: crate::drivers::vector::csv::CsvOptions,
+    /// How to read shapefiles: how the rings of a polygon record make polygons.
+    pub shapefile: crate::drivers::vector::shapefile::ShapefileOptions,
     /// A rectangle `(min_x, min_y, max_x, max_y)` in the layer's CRS: drivers that index their
     /// features (GeoParquet's bounding-box covering column and row group statistics, GeoPackage's
     /// R-tree) skip those whose bounding box is outside it. Callers still filter the features

@@ -394,6 +394,14 @@ reads it.
 - **MapInfo TAB** native tables (`.tab` with its `.dat`, `.map` and `.id`) are read with every
   object type and field type, in their charset, and seamless tables; they are written with their
   spatial index, which GDAL uses for spatial filters. Views and DBF-backed tables are not read.
+- **Shapefile polygons** are made from their rings as GDAL's shapefile driver makes them. By
+  default (`ONLY_CCW`), clockwise rings are exteriors and each counter-clockwise ring is a hole of
+  the smallest exterior around it. The `ORGANIZE_POLYGONS` open option (`--oo`,
+  `VectorOpenOptions::shapefile`) or the `OGR_ORGANIZE_POLYGONS` environment variable chooses one
+  of GDAL's other methods. `DEFAULT` groups rings by containment, whatever their winding, so
+  files that wind every ring one way keep their holes. `CCW_INNER_JUST_AFTER_CW_OUTER` makes each
+  counter-clockwise ring a hole of the clockwise ring before it, and `SKIP` makes every ring a
+  polygon.
 - **OSM XML** (`.osm`) gives the same five layers as PBF, with tags in the file's order.
 - **KMZ archives** are written as GDAL writes them, a `doc.kml` linking to one document per
   layer under `layers/`. Files given as KMZ resources (Rust `KmzOptions::resources`, CLI

@@ -431,7 +431,7 @@ pub(crate) mod codec {
                 zip.borrow_mut().by_name(member).ok()?.read_to_end(&mut out).ok()?;
                 Some(out)
             };
-            let layers = crate::drivers::vector::read_parts(&member, &main, driver, &sidecar)?;
+            let layers = crate::drivers::vector::read_parts(&member, &main, driver, &sidecar, options)?;
             let layers: Vec<Layer> = layers.into_iter().map(|l| crate::dataset::fix_layer(l, &main, driver)).collect();
             return finish_vector(layers, driver, options);
         }
