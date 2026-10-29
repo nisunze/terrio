@@ -51,7 +51,8 @@ pub struct Args {
     #[arg(long = "oo", value_name = "KEY=VALUE")]
     open_options: Vec<String>,
     /// A vector layer creation option, as GDAL names it: `KEY=VALUE` (CSV: GEOMETRY=AS_WKT|AS_XY;
-    /// GeoJSON: RFC7946=YES; vector tiles: MINZOOM, MAXZOOM, EXTENT, BUFFER, SIMPLIFICATION,
+    /// GeoJSON: RFC7946=YES, ID_FIELD, ID_TYPE; GeoJSONSeq: ID_FIELD, ID_TYPE; vector tiles:
+    /// MINZOOM, MAXZOOM, EXTENT, BUFFER, SIMPLIFICATION,
     /// SIMPLIFICATION_MAX_ZOOM, NAME, DESCRIPTION, TYPE).
     #[arg(long = "lco", value_name = "KEY=VALUE")]
     creation_options: Vec<String>,

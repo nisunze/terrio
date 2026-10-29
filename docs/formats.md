@@ -383,6 +383,11 @@ reads it.
   the types of the features seen so far (re-encoded if a later feature widens them), then written
   in the order of the spatial index. A streamed file is identical to the one written from the
   whole layer.
+- **GeoJSON feature ids** are read as GDAL reads them: integer `id` members become the feature
+  ids, and string or mixed ones an `id` field. When writing GeoJSON or GeoJSONSeq, the `ID_FIELD`
+  creation option (`GeoJsonOptions::id_field`) writes a field as each feature's `id` member
+  instead of a property: a number for integer and boolean fields, a string otherwise, or as
+  `ID_TYPE` (`GeoJsonOptions::id_type`: `String` or `Integer`) asks.
 - **GeoJSONSeq** files hold a GeoJSON feature per line (RFC 8142, optionally with record
   separators), written in WGS 84 with counter-clockwise exterior rings, as GDAL's GeoJSONSeq
   driver writes them.

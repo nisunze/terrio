@@ -26,6 +26,10 @@
 
 ### Formats
 
+- GeoJSON and GeoJSONSeq outputs write a field as each feature's `id` member with GDAL's
+  `ID_FIELD` and `ID_TYPE` creation options (`--lco`, `GeoJsonOptions::id_field` and
+  `id_type`), so the string identifiers read from a GeoJSON `id` go back out as RFC 7946 `id`
+  members. `GeoJsonOptions` is no longer `Copy`.
 - KMZ archives can carry files such as the icon images of `SYMBOL` styles (#394):
   `VectorWriteOptions::kmz` (`KmzOptions::resources`), `terrio convert --kmz-resource`, Python's
   `kmz_resources=` and JavaScript's `kmzResources` pack them beside the layer documents, where

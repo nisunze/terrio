@@ -105,7 +105,7 @@ pub(crate) fn write(layer: &Layer, path: &str, driver: VectorDriver, options: &V
         #[cfg(feature = "cad")]
         VectorDriver::DXF | VectorDriver::DWG => std::fs::write(path, cad::to_bytes(std::slice::from_ref(layer), driver)?)?,
         VectorDriver::GeoJSON => geojson::write(layer, path, &options.geojson)?,
-        VectorDriver::GeoJSONSeq => std::fs::write(path, geojson::to_seq_string(layer)?)?,
+        VectorDriver::GeoJSONSeq => std::fs::write(path, geojson::to_seq_string(layer, &options.geojson)?)?,
         VectorDriver::CSV => csv::write(layer, path, &options.csv)?,
         #[cfg(feature = "parquet")]
         VectorDriver::Parquet => geoparquet::write(layer, path)?,
@@ -202,7 +202,7 @@ pub(crate) fn write_bytes(layers: &[Layer], driver: VectorDriver, options: &Vect
         #[cfg(feature = "flatgeobuf")]
         VectorDriver::FlatGeobuf => flatgeobuf::to_bytes(first)?,
         VectorDriver::GeoJSON => geojson::to_string(first, &options.geojson)?.into_bytes(),
-        VectorDriver::GeoJSONSeq => geojson::to_seq_string(first)?.into_bytes(),
+        VectorDriver::GeoJSONSeq => geojson::to_seq_string(first, &options.geojson)?.into_bytes(),
         VectorDriver::CSV => csv::to_string(first, &options.csv)?.into_bytes(),
         #[cfg(feature = "parquet")]
         VectorDriver::Parquet => geoparquet::to_bytes(first)?,

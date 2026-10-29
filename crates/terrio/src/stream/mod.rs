@@ -827,14 +827,15 @@ impl FeatureWriter {
                 options: VectorWriteOptions { driver: Some(driver), ..options.clone() },
             }),
             (true, VectorDriver::GeoJSON, _) => {
-                let enc = geojson::CollectionEncoder::new(&schema, options.geojson)?;
+                let enc = geojson::CollectionEncoder::new(&schema, &options.geojson)?;
                 let mut out = BufWriter::with_capacity(1 << 20, File::create(path)?);
                 out.write_all(enc.head().as_bytes())?;
                 Box::new(GeoJsonSink { out, enc })
             }
-            (true, VectorDriver::GeoJSONSeq, _) => {
-                Box::new(SeqSink { out: BufWriter::with_capacity(1 << 20, File::create(path)?), enc: geojson::SeqEncoder::new(&schema)? })
-            }
+            (true, VectorDriver::GeoJSONSeq, _) => Box::new(SeqSink {
+                out: BufWriter::with_capacity(1 << 20, File::create(path)?),
+                enc: geojson::SeqEncoder::new(&schema, &options.geojson)?,
+            }),
             (true, VectorDriver::CSV, Some(p)) => {
                 let enc = csv::CsvEncoder::new(&schema, p, &options.csv)?;
                 let mut out = BufWriter::with_capacity(1 << 20, File::create(path)?);

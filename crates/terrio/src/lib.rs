@@ -253,7 +253,7 @@ pub use dataset::{
 };
 pub use drivers::gtiff_write::GeoTiffWriter;
 pub use drivers::vector::csv::{CsvGeometry, CsvOptions};
-pub use drivers::vector::geojson::GeoJsonOptions;
+pub use drivers::vector::geojson::{GeoJsonIdType, GeoJsonOptions};
 pub use drivers::vector::kml::KmzOptions;
 pub use drivers::vector::shapefile::{OrganizePolygons, ShapefileOptions};
 pub use error::{Error, Result};
