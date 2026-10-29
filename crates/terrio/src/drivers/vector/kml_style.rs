@@ -307,6 +307,20 @@ mod tests {
         assert_eq!(style.child("LineStyle").unwrap().child_text("width"), Some("2"));
         // A null pen alone still turns a polygon's outline off.
         assert!(to_kml(r#"PEN(id:"ogr-pen-1")"#).ends_with("<PolyStyle><outline>0</outline></PolyStyle>"));
+        // A null brush beside an ordinary pen turns only the fill off; a null pen beside an
+        // ordinary brush, only the outline.
+        for (ogr, fill, outline) in [
+            (r#"PEN(c:#FF0000FF);BRUSH(fc:#00FF007F,id:"ogr-brush-1")"#, Some("0"), None),
+            (r#"PEN(id:"ogr-pen-1");BRUSH(fc:#00FF007F)"#, None, Some("0")),
+        ] {
+            let style = xml::parse(&format!("<Style>{}</Style>", to_kml(ogr))).unwrap();
+            let poly = style.child("PolyStyle").unwrap();
+            assert_eq!(
+                (poly.child_text("color"), poly.child_text("fill"), poly.child_text("outline")),
+                (Some("7f00ff00"), fill, outline),
+                "{ogr}"
+            );
+        }
         // Other brushes and pens write neither flag.
         let plain = to_kml("PEN(c:#FF0000FF);BRUSH(fc:#00FF007F)");
         assert!(!plain.contains("<fill>") && !plain.contains("<outline>"), "{plain}");
