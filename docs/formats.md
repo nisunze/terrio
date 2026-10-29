@@ -396,7 +396,9 @@ reads it.
   spatial index, which GDAL uses for spatial filters. Views and DBF-backed tables are not read.
 - **OSM XML** (`.osm`) gives the same five layers as PBF, with tags in the file's order.
 - **KML styles** (`<Style>`, `<StyleMap>`) are read into an `OGR_STYLE` field holding GDAL's style
-  strings (`PEN(c:#FF0000FF,w:2.000000px);BRUSH(fc:#00FF0040)`), and written back as KML styles.
+  strings (`PEN(c:#FF0000FF,w:2.000000px);BRUSH(fc:#00FF0040)`), and written back as KML styles;
+  OGR's null brush (`BRUSH(id:"ogr-brush-1")`) and null pen (`PEN(id:"ogr-pen-1")`) are written as
+  PolyStyle `<fill>0</fill>` and `<outline>0</outline>`.
 
 ### CAD drawings (DWG and DXF)
 
