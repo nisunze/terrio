@@ -102,16 +102,25 @@ impl IdColumn {
     }
 }
 
-/// The integer at the start of `s`, as C's `atoi` reads it: `0` when there is none.
+/// The integer at the start of `s`, as C's `atoi` reads it: `0` when there is none. As GDAL's
+/// 64-bit parse does, a magnitude too large for `i64` saturates.
 fn atoi(s: &str) -> i64 {
-    let s = s.trim_start();
+    // C's `isspace` characters, not Unicode's whitespace.
+    let s = s.trim_start_matches([' ', '\t', '\n', '\x0B', '\x0C', '\r']);
     let (sign, digits) = match s.as_bytes().first() {
         Some(b'-') => (-1, &s[1..]),
         Some(b'+') => (1, &s[1..]),
         _ => (1, s),
     };
     let end = digits.find(|c: char| !c.is_ascii_digit()).unwrap_or(digits.len());
-    digits[..end].parse::<i64>().map_or(0, |n| sign * n)
+    let magnitude = &digits[..end];
+    match magnitude.parse::<i64>() {
+        Ok(n) => sign * n,
+        // No digits at all, which `parse` rejects too.
+        Err(_) if magnitude.is_empty() => 0,
+        Err(_) if sign < 0 => i64::MIN,
+        Err(_) => i64::MAX,
+    }
 }
 
 /// Reads a GeoJSON file.
@@ -719,6 +728,19 @@ mod tests {
         let options = GeoJsonOptions { id_field: Some("nope".into()), ..Default::default() };
         assert!(to_string(&layer, &options).unwrap().contains(r#"{"type":"Feature","properties":{"id":"pole-17","name":"a"}"#));
         assert!(GeoJsonOptions::default().set("ID_TYPE", "Float").is_err());
+    }
+
+    #[test]
+    fn atoi_reads_text_ids_as_c_does() {
+        assert_eq!(atoi("42"), 42);
+        assert_eq!(atoi(" \t\n\x0B\x0C\r-7x"), -7);
+        assert_eq!(atoi("\u{a0}42"), 0);
+        assert_eq!(atoi("+"), 0);
+        assert_eq!(atoi("x1"), 0);
+        assert_eq!(atoi("-9223372036854775808"), i64::MIN);
+        assert_eq!(atoi("-99999999999999999999"), i64::MIN);
+        assert_eq!(atoi("9223372036854775807"), i64::MAX);
+        assert_eq!(atoi("9223372036854775808"), i64::MAX);
     }
 
     #[test]

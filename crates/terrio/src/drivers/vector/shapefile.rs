@@ -80,15 +80,14 @@ impl ShapefileOptions {
 
     /// The method in effect: the option, else the environment's, else `ONLY_CCW`.
     pub(crate) fn method(&self) -> OrganizePolygons {
-        self.organize_polygons
-            .or_else(|| {
-                ["TERRIO_ORGANIZE_POLYGONS", "OGR_ORGANIZE_POLYGONS"]
-                    .iter()
-                    .find_map(|name| std::env::var(name).ok())
-                    .and_then(|name| OrganizePolygons::from_name(&name))
-            })
-            .unwrap_or_default()
+        self.organize_polygons.or_else(|| method_from_env(|name| std::env::var(name).ok())).unwrap_or_default()
     }
+}
+
+/// The method of the first of `TERRIO_ORGANIZE_POLYGONS` and `OGR_ORGANIZE_POLYGONS` that names
+/// one, so a variable set to an unknown method does not hide the next.
+fn method_from_env(get: impl Fn(&str) -> Option<String>) -> Option<OrganizePolygons> {
+    ["TERRIO_ORGANIZE_POLYGONS", "OGR_ORGANIZE_POLYGONS"].iter().find_map(|&name| get(name).and_then(|v| OrganizePolygons::from_name(&v)))
 }
 
 /// Reads a shapefile. `path` names the `.shp` file.
@@ -1205,6 +1204,17 @@ mod tests {
         }
         assert!(ShapefileOptions::default().set("ORGANIZE_POLYGONS", "SOMETIMES").is_err());
         assert!(!ShapefileOptions::default().set("ENCODING", "UTF-8").unwrap());
+    }
+
+    #[test]
+    fn an_unknown_environment_method_does_not_hide_the_next() {
+        let env = |name: &str| match name {
+            "TERRIO_ORGANIZE_POLYGONS" => Some("garbage".to_string()),
+            "OGR_ORGANIZE_POLYGONS" => Some("DEFAULT".to_string()),
+            _ => None,
+        };
+        assert_eq!(method_from_env(env), Some(OrganizePolygons::Containment));
+        assert_eq!(method_from_env(|_| None), None);
     }
 
     fn closed(xy: &[(f64, f64)]) -> Vec<Coord> {

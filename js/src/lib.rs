@@ -122,7 +122,7 @@ pub(crate) fn parse_options<T: serde::de::DeserializeOwned + Default>(options: &
 }
 
 /// The files of a `kmzResources` option, `{ "icons/pin.png": Uint8Array }`, read from the options
-/// object itself: its JSON form drops the bytes.
+/// object itself: JSON writes each of their bytes as a separate entry.
 fn kmz_resources(options: &JsValue) -> Result<Vec<(String, Vec<u8>)>, JsError> {
     use wasm_bindgen::JsCast;
     if !options.is_object() {
@@ -217,7 +217,7 @@ struct WriteOptions {
     /// Keep at most this many features.
     limit: Option<usize>,
     /// KMZ output: files packed into the archive, such as icon images, by the relative path the
-    /// styles refer to them with. Read by [`kmz_resources`], since JSON drops their bytes.
+    /// styles refer to them with. Read by [`kmz_resources`], since JSON writes each of their bytes as an entry.
     kmz_resources: Option<serde::de::IgnoredAny>,
     /// A raster window `[col_off, row_off, width, height]`.
     srcwin: Option<[usize; 4]>,

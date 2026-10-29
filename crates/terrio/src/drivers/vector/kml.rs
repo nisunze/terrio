@@ -447,7 +447,7 @@ fn resource_members(resources: &[(String, Vec<u8>)]) -> Result<Vec<(&str, String
         let parts: Vec<&str> = path.split('/').filter(|part| *part != ".").collect();
         let relative = !parts.is_empty()
             && !path.starts_with('/')
-            && !path.contains(['\\', ':'])
+            && !path.contains(['\\', ':', '#'])
             && parts.iter().all(|part| !part.is_empty() && *part != "..");
         if !relative {
             return Err(Error::InvalidArgument(format!("the KMZ resource '{path}' is not a relative path inside the archive")));
@@ -740,6 +740,7 @@ mod tests {
             "icons//pin.png",
             "http://x/pin.png",
             "C:\\pin.png",
+            "icons/a#b.png",
             "pins.kml",
         ] {
             let kmz = KmzOptions { resources: vec![(path.into(), png.clone())] };

@@ -174,11 +174,13 @@ pub fn write_vector_bytes(layers: &[Layer], name: &str, options: &VectorWriteOpt
         None => {
             #[cfg(feature = "gdal")]
             if let Some(d) = crate::gdal_backend::driver_for_path(name, true) {
+                crate::dataset::ensure_kmz_resources_apply(options, None)?;
                 return crate::gdal_backend::write_vector_bytes(layers, name, &d, &[], &[]);
             }
             return Err(Error::InvalidArgument(format!("cannot tell the output format of '{name}': give it explicitly")));
         }
     };
+    crate::dataset::ensure_kmz_resources_apply(options, Some(driver))?;
     if driver == VectorDriver::Shapefile {
         if !name.to_ascii_lowercase().ends_with(".zip") {
             return Err(Error::InvalidArgument("Shapefile bytes are a ZIP archive: use a .shp.zip filename (MIME application/zip)".into()));
@@ -613,6 +615,19 @@ mod tests {
         let bytes = codec::write_raster(&ds, RasterDriver::GTiff, &RasterWriteOptions::default(), "raster").unwrap();
         let back = crate::LazyRaster::from_tiff_bytes(bytes).unwrap().unwrap().header();
         assert_eq!(back.band_color_interp(1), "Undefined");
+    }
+
+    #[test]
+    fn kmz_resources_are_refused_unless_the_output_is_kmz() {
+        let layers = [Layer::new("pins").with_crs_epsg(4326)];
+        let options = VectorWriteOptions {
+            kmz: crate::drivers::vector::kml::KmzOptions { resources: vec![("icons/pin.png".into(), vec![1, 2, 3])] },
+            ..Default::default()
+        };
+        for name in ["pins.geojson", "pins.gpkg", "pins.shp.zip"] {
+            assert!(matches!(write_vector_bytes(&layers, name, &options), Err(Error::InvalidArgument(_))), "{name}");
+        }
+        assert!(write_vector_bytes(&layers, "pins.kmz", &options).is_ok());
     }
 
     fn raster(bands: usize, dt: DataType) -> RasterDataset {
