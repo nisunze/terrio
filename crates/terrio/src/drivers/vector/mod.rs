@@ -113,7 +113,7 @@ pub(crate) fn write(layer: &Layer, path: &str, driver: VectorDriver, options: &V
         VectorDriver::GML => gml::write(layer, path)?,
         VectorDriver::GPX => gpx::write(layer, path)?,
         VectorDriver::KML => kml::write(std::slice::from_ref(layer), path)?,
-        VectorDriver::KMZ => kml::write_kmz(std::slice::from_ref(layer), path)?,
+        VectorDriver::KMZ => kml::write_kmz(std::slice::from_ref(layer), path, &options.kmz)?,
         VectorDriver::TopoJSON => topojson::write(layer, path)?,
         VectorDriver::MapInfo if crate::formats::extension(path).as_deref() == Some("tab") => tab::write(layer, path)?,
         VectorDriver::MapInfo => mapinfo::write(layer, path)?,
@@ -191,7 +191,7 @@ pub(crate) fn write_bytes(layers: &[Layer], driver: VectorDriver, options: &Vect
         VectorDriver::DXF | VectorDriver::DWG => cad::to_bytes(layers, driver)?,
         VectorDriver::GPX => gpx::layers_to_string(layers)?.into_bytes(),
         VectorDriver::KML => kml::to_string(layers)?.into_bytes(),
-        VectorDriver::KMZ => kml::kmz_bytes(layers)?,
+        VectorDriver::KMZ => kml::kmz_bytes(layers, &options.kmz)?,
         VectorDriver::TopoJSON => topojson::to_string(layers)?.into_bytes(),
         #[cfg(feature = "flatgeobuf")]
         VectorDriver::FlatGeobuf => flatgeobuf::to_bytes(first)?,

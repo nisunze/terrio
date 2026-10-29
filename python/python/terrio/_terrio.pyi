@@ -310,8 +310,20 @@ class Layer:
         name: str | None = None,
         crs: str | None = None,
     ) -> Layer: ...
-    def write(self, path: str, driver: str | None = None) -> None: ...
-    def to_bytes(self, filename: str = "layer.geojson", driver: str | None = None) -> bytes: ...
+    def write(
+        self,
+        path: str,
+        driver: str | None = None,
+        *,
+        kmz_resources: Mapping[str, bytes] | None = None,
+    ) -> None: ...
+    def to_bytes(
+        self,
+        filename: str = "layer.geojson",
+        driver: str | None = None,
+        *,
+        kmz_resources: Mapping[str, bytes] | None = None,
+    ) -> bytes: ...
 
 @final
 class VectorDataset:
@@ -326,7 +338,13 @@ class VectorDataset:
     def __len__(self) -> int: ...
     def __getitem__(self, key: int | str, /) -> Layer: ...
     def __iter__(self) -> Iterator[Layer]: ...
-    def write(self, path: str, driver: str | None = None) -> None: ...
+    def write(
+        self,
+        path: str,
+        driver: str | None = None,
+        *,
+        kmz_resources: Mapping[str, bytes] | None = None,
+    ) -> None: ...
 
 @final
 class ArrowTable:

@@ -69,6 +69,11 @@ pub struct Args {
     /// Tile archives (PMTiles, MBTiles, MVT): the highest zoom level written.
     #[arg(long)]
     maxzoom: Option<u8>,
+    /// KMZ output: a file packed into the archive, such as an icon image, by the relative path
+    /// the styles refer to it with: `PATH` (read from that path) or `PATH=FILE`. Repeat it for
+    /// several files.
+    #[arg(long = "kmz-resource", value_name = "PATH[=FILE]")]
+    kmz_resources: Vec<String>,
     #[command(flatten)]
     vector: super::vector_opts::VectorArgs,
     #[command(flatten)]
@@ -82,6 +87,17 @@ pub(super) fn key_values(options: &[String]) -> terrio::Result<Vec<(&str, &str)>
     options
         .iter()
         .map(|o| o.split_once('=').ok_or_else(|| terrio::Error::InvalidArgument(format!("option '{o}' is not KEY=VALUE"))))
+        .collect()
+}
+
+/// The files of `--kmz-resource`: `PATH`, read from that path, or `PATH=FILE`.
+fn kmz_resources(values: &[String]) -> terrio::Result<Vec<(String, Vec<u8>)>> {
+    values
+        .iter()
+        .map(|v| {
+            let (path, file) = v.split_once('=').unwrap_or((v.as_str(), v.as_str()));
+            Ok((path.to_string(), std::fs::read(file)?))
+        })
         .collect()
 }
 
@@ -106,6 +122,10 @@ fn stream_options(a: &Args) -> terrio::Result<Option<terrio::stream::ConvertOpti
         if !open.csv.set(k, v)? && !open.tiles.set(k, v)? {
             return Err(terrio::Error::InvalidArgument(format!("unknown open option '{k}'")));
         }
+    }
+    // KMZ resources are packed by the whole-archive writer.
+    if !a.kmz_resources.is_empty() {
+        return Ok(None);
     }
     let mut write = VectorWriteOptions { driver, ..Default::default() };
     for (k, v) in key_values(&a.creation_options)? {
@@ -302,6 +322,11 @@ pub fn run(mut a: Args) -> terrio::Result<()> {
                             "--minzoom and --maxzoom apply to tile archives, not to GDAL's {d} driver"
                         )));
                     }
+                    if !a.kmz_resources.is_empty() {
+                        return Err(terrio::Error::InvalidArgument(format!(
+                            "--kmz-resource applies to KMZ output, not to GDAL's {d} driver"
+                        )));
+                    }
                     let pairs = |o: &[String]| -> terrio::Result<Vec<(String, String)>> {
                         Ok(key_values(o)?.into_iter().map(|(k, v)| (k.to_string(), v.to_string())).collect())
                     };
@@ -320,6 +345,12 @@ pub fn run(mut a: Args) -> terrio::Result<()> {
             let mut options = VectorWriteOptions { driver, ..Default::default() };
             options.tiles.min_zoom = a.minzoom;
             options.tiles.max_zoom = a.maxzoom;
+            if !a.kmz_resources.is_empty() {
+                if !matches!(driver.or_else(|| VectorDriver::for_extension(&a.output)), Some(VectorDriver::KMZ)) {
+                    return Err(terrio::Error::InvalidArgument("--kmz-resource applies to KMZ output".into()));
+                }
+                options.kmz.resources = kmz_resources(&a.kmz_resources)?;
+            }
             let tiles_out = matches!(
                 driver.or_else(|| VectorDriver::for_extension(&a.output)),
                 Some(VectorDriver::MBTiles | VectorDriver::PMTiles | VectorDriver::MVT)

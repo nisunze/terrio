@@ -26,6 +26,10 @@
 
 ### Formats
 
+- KMZ archives can carry files such as the icon images of `SYMBOL` styles (#394):
+  `VectorWriteOptions::kmz` (`KmzOptions::resources`), `terrio convert --kmz-resource`, Python's
+  `kmz_resources=` and JavaScript's `kmzResources` pack them beside the layer documents, where
+  relative icon links resolve.
 - SRTM HGT tiles are read and written (the `SRTMHGT` driver), as GDAL's SRTMHGT
   driver does: 3", 1" and 0.5" tiles georeferenced from their name
   (`N37W120.hgt`), `.hgt.zip` archives, and the NASADEM and water body variants.

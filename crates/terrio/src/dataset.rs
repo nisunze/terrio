@@ -904,6 +904,8 @@ pub struct VectorWriteOptions {
     pub geojson: crate::drivers::vector::geojson::GeoJsonOptions,
     /// How to write vector tiles (PMTiles, MBTiles, MVT): zoom levels, buffer, simplification.
     pub tiles: crate::tiles::TileWriteOptions,
+    /// How to write KMZ archives: the files, such as icon images, packed with the documents.
+    pub kmz: crate::drivers::vector::kml::KmzOptions,
 }
 
 /// Writes vector layers. GeoPackage, GPX, KML, KMZ and TopoJSON hold several layers in one file;
@@ -948,7 +950,7 @@ pub fn write_vector(layers: &[Layer], path: &str, options: &VectorWriteOptions) 
         }
         (VectorDriver::GPX, _) => crate::drivers::vector::gpx::write_layers(layers, path),
         (VectorDriver::KML, _) => crate::drivers::vector::kml::write(layers, path),
-        (VectorDriver::KMZ, _) => crate::drivers::vector::kml::write_kmz(layers, path),
+        (VectorDriver::KMZ, _) => crate::drivers::vector::kml::write_kmz(layers, path, &options.kmz),
         (VectorDriver::TopoJSON, _) => crate::drivers::vector::topojson::write_layers(layers, path),
         #[cfg(feature = "tiles")]
         (VectorDriver::MBTiles | VectorDriver::PMTiles | VectorDriver::MVT, _) => {

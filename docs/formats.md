@@ -395,6 +395,11 @@ reads it.
   object type and field type, in their charset, and seamless tables; they are written with their
   spatial index, which GDAL uses for spatial filters. Views and DBF-backed tables are not read.
 - **OSM XML** (`.osm`) gives the same five layers as PBF, with tags in the file's order.
+- **KMZ archives** are written as GDAL writes them, a `doc.kml` linking to one document per
+  layer under `layers/`. Files given as KMZ resources (Rust `KmzOptions::resources`, CLI
+  `--kmz-resource`, Python `kmz_resources`, JavaScript `kmzResources`), such as the icon images
+  of `SYMBOL` styles, are packed beside those documents, so relative icon links resolve inside
+  the archive.
 - **KML styles** (`<Style>`, `<StyleMap>`) are read into an `OGR_STYLE` field holding GDAL's style
   strings (`PEN(c:#FF0000FF,w:2.000000px);BRUSH(fc:#00FF0040)`), and written back as KML styles;
   OGR's null brush (`BRUSH(id:"ogr-brush-1")`) and null pen (`PEN(id:"ogr-pen-1")`) are written as
