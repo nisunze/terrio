@@ -19,7 +19,13 @@ __all__ = [
     "validate_cog",
     "check_dataset",
     "identify",
+    "dataset_copy",
+    "dataset_delete",
+    "dataset_files",
+    "dataset_rename",
     "__version__",
+    "gpkg_repack",
+    "gpkg_repack_bytes",
     "Raster",
     "GeoTiffWriter",
     "Layer",
@@ -55,6 +61,7 @@ __all__ = [
     "MultidimDataset",
     "MultidimArray",
     "open_multidim",
+    "mosaic_multidim",
     "dem",
     "calc",
     "proximity",
@@ -76,6 +83,10 @@ __all__ = [
     "enhance_luts",
     "unscale",
     "blend",
+    "rgb_to_palette",
+    "palette_to_rgb",
+    "attach_palette",
+    "read_color_table",
     "nodata_to_alpha",
     "reclassify",
     "as_features",
@@ -115,6 +126,7 @@ __all__ = [
     "vsi_move",
     "vsi_sync",
     "concat",
+    "parquet_create_metadata",
     "partition",
     "set_field_type",
     "make_point",
@@ -714,14 +726,21 @@ def open(path: str) -> Raster | VectorDataset: ...
 def open_raster(path: str, lazy: bool = False) -> Raster: ...
 def open_vrt(xml: str, sources: Mapping[str, bytes | str | os.PathLike[str]]) -> Raster: ...
 def open_vector(
-    path: str, layers: Sequence[str] | None = None, bbox: _Bounds | None = None
+    path: str,
+    layers: Sequence[str] | None = None,
+    bbox: _Bounds | None = None,
+    options: Mapping[str, str] | None = None,
 ) -> VectorDataset: ...
 def open_bytes(
     data: bytes | bytearray, filename: str, lazy: bool = False
 ) -> Raster | VectorDataset: ...
 def list_layers(path: str) -> list[str]: ...
 def info(
-    path: str, stats: bool = False, layers: Sequence[str] | None = None, hist: bool = False
+    path: str,
+    stats: bool = False,
+    layers: Sequence[str] | None = None,
+    hist: bool = False,
+    options: Mapping[str, str] | None = None,
 ) -> dict[str, Any]: ...
 def drivers() -> list[dict[str, Any]]: ...
 def write_raster(
@@ -1874,6 +1893,56 @@ def blend(
     """Blends equal-sized Byte images, with GDAL operators and opacity 0..100."""
     ...
 
+def gpkg_repack(path: str | os.PathLike[str]) -> dict[str, Any]: ...
+def gpkg_repack_bytes(data: bytes) -> bytes: ...
+def mosaic_multidim(
+    sources: Sequence[MultidimDataset | str | os.PathLike[str] | bytes | dict[str, bytes]],
+    dst: str | os.PathLike[str] | None = None,
+    *,
+    arrays: Sequence[str] | None = None,
+) -> MultidimDataset: ...
+
+_PaletteSource: TypeAlias = Raster | str | os.PathLike[str] | bytes | Sequence[Sequence[int]]
+
+def read_color_table(source: _PaletteSource, filename: str | None = None) -> list[list[int]]: ...
+def rgb_to_palette(
+    src: Raster | str | os.PathLike[str],
+    dst: str | None = None,
+    *,
+    color_count: int = 256,
+    bit_depth: int = 5,
+    dither: bool = True,
+    color_map: _PaletteSource | None = None,
+    output_nodata: int | None = None,
+    mask: NDArray[np.uint8] | None = None,
+    format: str | None = None,
+    compress: str | None = None,
+    tile_size: int | None = None,
+    bigtiff: bool = False,
+    overwrite: bool = False,
+) -> Raster: ...
+def palette_to_rgb(
+    src: Raster | str | os.PathLike[str],
+    dst: str | None = None,
+    *,
+    rgba: bool = False,
+    format: str | None = None,
+    compress: str | None = None,
+    tile_size: int | None = None,
+    bigtiff: bool = False,
+    overwrite: bool = False,
+) -> Raster: ...
+def attach_palette(
+    src: Raster | str | os.PathLike[str],
+    color_map: _PaletteSource,
+    dst: str | None = None,
+    *,
+    format: str | None = None,
+    compress: str | None = None,
+    tile_size: int | None = None,
+    bigtiff: bool = False,
+    overwrite: bool = False,
+) -> Raster: ...
 def identify(
     sources: str | os.PathLike[str] | Iterable[str | os.PathLike[str]] | bytes,
     *,
@@ -1889,6 +1958,34 @@ def identify(
     """
     ...
 
+def dataset_files(
+    source: str | os.PathLike[str], *, format: str | None = None
+) -> dict[str, Any]: ...
+def dataset_copy(
+    source: str | os.PathLike[str],
+    destination: str | os.PathLike[str],
+    *,
+    format: str | None = None,
+    overwrite: bool = False,
+    allow_external_references: bool = False,
+) -> dict[str, Any]: ...
+def dataset_rename(
+    source: str | os.PathLike[str],
+    destination: str | os.PathLike[str],
+    *,
+    format: str | None = None,
+    overwrite: bool = False,
+    allow_external_references: bool = False,
+) -> dict[str, Any]: ...
+def dataset_delete(
+    sources: str | os.PathLike[str] | Iterable[str | os.PathLike[str]], *, format: str | None = None
+) -> list[dict[str, Any]]: ...
+def parquet_create_metadata(
+    inputs: Sequence[str | os.PathLike[str]],
+    output: str | os.PathLike[str],
+    *,
+    overwrite: bool = False,
+) -> dict[str, Any]: ...
 def check_dataset(
     source: str | os.PathLike[str] | bytes,
     *,

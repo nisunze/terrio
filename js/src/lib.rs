@@ -12,11 +12,15 @@
 //! const points = readPoints(lazBytes, "lidar.laz", { classes: [2] }); // LAS, LAZ, COPC
 //! ```
 
+mod dataset_files;
+mod gpkg_maintenance;
 mod grid;
 mod inspection;
 mod manage;
 mod multidim;
 mod ops;
+mod palette;
+mod parquet_metadata;
 mod pixel;
 #[cfg(feature = "pointcloud")]
 mod pointcloud;
@@ -68,6 +72,7 @@ const FEATURES: &[(&str, bool)] = &[
     ("cad", cfg!(feature = "cad")),
     ("flatgeobuf", cfg!(feature = "flatgeobuf")),
     ("grib", cfg!(feature = "grib")),
+    ("hecras", cfg!(feature = "hecras")),
     ("jp2", cfg!(feature = "jp2")),
     ("lerc", cfg!(feature = "lerc")),
     ("lzma", cfg!(feature = "lzma")),
@@ -350,6 +355,48 @@ pub fn open(bytes: Vec<u8>, filename: &str) -> Result<Dataset, JsError> {
         terrio::Dataset::Raster(r) => Dataset::from_raster(r),
         terrio::Dataset::Vector(v) => Dataset::from_layers(v.layers, v.driver),
     })
+}
+
+/// Options for [`open_vector`], as a JavaScript object.
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
+struct VectorOpenOptions {
+    /// Only these layers, by name.
+    layers: Option<Vec<String>>,
+    /// Driver open options by their GDAL names (`{ CELL_SUMMARIES: "Maximum Water Surface",
+    /// TIME_STEP: "12" }`), as `terrio convert --oo` takes them.
+    open_options: Option<std::collections::BTreeMap<String, serde_json::Value>>,
+}
+
+/// Opens a vector dataset from its bytes, with driver open options. `filename` names the file
+/// (its extension tells the format when the content does not); `options` takes `layers` (names)
+/// and `openOptions`, the driver's open options by their GDAL names: the CSV options, the tile
+/// archive options and those of the HECRAS driver for HEC-RAS geometry and plan HDF files
+/// (`CELL_SUMMARIES`, `TIME_STEP`, ...). A list option takes a comma-separated string or an
+/// array of names.
+///
+/// A HEC-RAS file is read whole from memory: it must fit in the module's memory (4 GiB at most
+/// for wasm32) and opening briefly needs about twice its size. Layers the engine refuses are
+/// errors when named in `layers`, and left out with a warning otherwise.
+#[wasm_bindgen(js_name = openVector)]
+pub fn open_vector(bytes: Vec<u8>, filename: &str, options: JsValue) -> Result<Dataset, JsError> {
+    let o: VectorOpenOptions = parse_options(&options)?;
+    let mut open = terrio::VectorOpenOptions { layers: o.layers.unwrap_or_default(), ..Default::default() };
+    for (key, value) in o.open_options.unwrap_or_default() {
+        // A list option may be given as an array of names, joined as its comma-separated form.
+        let value = match &value {
+            serde_json::Value::String(s) => s.clone(),
+            serde_json::Value::Array(items) => {
+                items.iter().map(|v| v.as_str().map_or_else(|| v.to_string(), str::to_string)).collect::<Vec<_>>().join(",")
+            }
+            other => other.to_string(),
+        };
+        if !open.set(&key, &value).map_err(js_err)? {
+            return Err(JsError::new(&format!("unknown open option '{key}'")));
+        }
+    }
+    let v = terrio::memory::open_vector_bytes(bytes, filename, &open).map_err(js_err)?;
+    Ok(Dataset::from_layers(v.layers, v.driver))
 }
 
 /// Opens a Zarr store (v2 or v3, GeoZarr conventions included) from its files: a `Map` or an
@@ -646,6 +693,8 @@ impl Dataset {
     /// stores come back as a zip archive of their files. Shapefile output requires
     /// `roads.shp.zip` (MIME `application/zip`); `.shp` alone is refused. The ZIP holds
     /// `.shp`, `.shx`, `.dbf`, `.cpg` and, when a CRS is present, `.prj`.
+    /// GeoTIFF/COG preserve dataset masks for raster writes without tSrs; a masked raster with
+    /// tSrs is refused because separate-mask reprojection is not implemented.
     /// Text over 254 UTF-8 bytes and unsupported DBF values are explicit errors.
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self, filename: &str, options: JsValue) -> Result<Vec<u8>, JsError> {
@@ -677,6 +726,12 @@ impl Dataset {
                     (None, None) => Window::full(r.width(), r.height()),
                 };
                 let opts = WindowOptions { bands: o.bands.unwrap_or_default(), overview: o.overview };
+                if t_srs.is_some() && r.has_mask() {
+                    return Err(JsError::new("reprojected toBytes does not preserve dataset masks; use an explicit alpha band"));
+                }
+                let mut mask_options = RasterWriteOptions { driver, ..Default::default() };
+                r.prepare_output_mask(filename, &mut mask_options, window, o.overview).map_err(js_err)?;
+                let mask = mask_options.mask;
                 let mut ds = r.read_window(window, &opts).map_err(js_err)?;
                 if let Some(dst) = t_srs {
                     let o = terrio::ops::warp::WarpOptions {
@@ -698,6 +753,7 @@ impl Dataset {
                     driver,
                     compression: o.compress,
                     tile_size: o.tile_size,
+                    mask,
                     creation_options,
                     overviews: o.overviews,
                     overview_resampling: o.overview_resampling,
