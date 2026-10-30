@@ -76,8 +76,8 @@ pub struct Args {
     #[arg(long)]
     maxzoom: Option<u8>,
     /// KMZ output: a file packed into the archive, such as an icon image, by the relative path
-    /// the styles refer to it with: `PATH` (read from that path) or `PATH=FILE`. Repeat it for
-    /// several files.
+    /// the styles refer to it with: `PATH` (read from that path) or `PATH=FILE`. A `PATH` that is
+    /// an existing file is taken whole, even with an `=`. Repeat it for several files.
     #[arg(long = "kmz-resource", value_name = "PATH[=FILE]")]
     kmz_resources: Vec<String>,
     #[command(flatten)]
@@ -96,12 +96,14 @@ pub(super) fn key_values(options: &[String]) -> terrio::Result<Vec<(&str, &str)>
         .collect()
 }
 
-/// The files of `--kmz-resource`: `PATH`, read from that path, or `PATH=FILE`.
+/// The files of `--kmz-resource`: `PATH`, read from that path, or `PATH=FILE`. A value that is an
+/// existing file is a `PATH`, so archive paths may hold `=`.
 fn kmz_resources(values: &[String]) -> terrio::Result<Vec<(String, Vec<u8>)>> {
     values
         .iter()
         .map(|v| {
-            let (path, file) = v.split_once('=').unwrap_or((v.as_str(), v.as_str()));
+            let whole = (v.as_str(), v.as_str());
+            let (path, file) = if std::path::Path::new(v).is_file() { whole } else { v.split_once('=').unwrap_or(whole) };
             Ok((path.to_string(), std::fs::read(file)?))
         })
         .collect()
@@ -369,5 +371,23 @@ pub fn run(mut a: Args) -> terrio::Result<()> {
             }
             terrio::ops::vector_filter::write_vector_with_mode(&layers, &a.output, &options, a.vector.write_mode())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::kmz_resources;
+
+    #[test]
+    fn kmz_resources_take_an_existing_file_whole() {
+        let dir = tempfile::tempdir().unwrap();
+        let named = dir.path().join("pin=blue.png");
+        std::fs::write(&named, b"blue").unwrap();
+        let source = dir.path().join("red.png");
+        std::fs::write(&source, b"red").unwrap();
+        let named = named.to_str().unwrap().to_string();
+        let mapped = format!("icons/pin.png={}", source.to_str().unwrap());
+        let got = kmz_resources(&[named.clone(), mapped]).unwrap();
+        assert_eq!(got, vec![(named, b"blue".to_vec()), ("icons/pin.png".to_string(), b"red".to_vec())]);
     }
 }

@@ -16,6 +16,7 @@ well. The cases in ``KNOWN`` are reported as not compared.
 
 import argparse
 import json
+import os
 import struct
 import subprocess
 import tempfile
@@ -168,6 +169,9 @@ def main():
     parser.add_argument("--terrio", default=str(ROOT / "target/release/terrio"))
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
+    # Each run picks its method itself: an inherited one would change terrio's default or GDAL's.
+    for name in ("OGR_ORGANIZE_POLYGONS", "TERRIO_ORGANIZE_POLYGONS"):
+        os.environ.pop(name, None)
     ogr.UseExceptions()
     # GDAL warns about the wrongly wound rings of some cases; they are part of the comparison.
     gdal.PushErrorHandler("CPLQuietErrorHandler")

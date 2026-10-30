@@ -440,14 +440,15 @@ pub fn kmz_bytes(layers: &[Layer], kmz: &KmzOptions) -> Result<Vec<u8>> {
 }
 
 /// Where each KMZ resource goes: under `layers/`, beside the documents whose relative links
-/// resolve to it. Only relative paths inside the archive are taken, each once.
+/// resolve to it. Only relative paths inside the archive are taken, each once, and none with
+/// characters a viewer reads as part of a URI (`?`, `#`, `%`) rather than of the member name.
 fn resource_members(resources: &[(String, Vec<u8>)]) -> Result<Vec<(&str, String, &[u8])>> {
     let mut members: Vec<(&str, String, &[u8])> = Vec::with_capacity(resources.len());
     for (path, bytes) in resources {
         let parts: Vec<&str> = path.split('/').filter(|part| *part != ".").collect();
         let relative = !parts.is_empty()
             && !path.starts_with('/')
-            && !path.contains(['\\', ':', '#'])
+            && !path.contains(['\\', ':', '#', '?', '%'])
             && parts.iter().all(|part| !part.is_empty() && *part != "..");
         if !relative {
             return Err(Error::InvalidArgument(format!("the KMZ resource '{path}' is not a relative path inside the archive")));
@@ -741,6 +742,8 @@ mod tests {
             "http://x/pin.png",
             "C:\\pin.png",
             "icons/a#b.png",
+            "icons/a?b.png",
+            "icons/a%20b.png",
             "pins.kml",
         ] {
             let kmz = KmzOptions { resources: vec![(path.into(), png.clone())] };

@@ -126,15 +126,20 @@ pub(crate) fn parse_options<T: serde::de::DeserializeOwned + Default>(options: &
     serde_json::from_str(&text).map_err(|e| JsError::new(&format!("options: {e}")))
 }
 
-/// A shallow copy of an options object without `key` (the object itself when it is not one).
-fn without_key(options: &JsValue, key: &str) -> JsValue {
+/// A shallow copy of an options object without `key`, whose value is not read (the value itself
+/// when it is not an object).
+fn without_key(options: &JsValue, key: &str) -> Result<JsValue, JsError> {
     use wasm_bindgen::JsCast;
     if !options.is_object() {
-        return options.clone();
+        return Ok(options.clone());
     }
-    let copy = js_sys::Object::assign(&js_sys::Object::new(), options.unchecked_ref());
-    let _ = js_sys::Reflect::delete_property(&copy, &JsValue::from_str(key));
-    copy.into()
+    let copy = js_sys::Object::new();
+    let object: &js_sys::Object = options.unchecked_ref();
+    for name in js_sys::Object::keys(object).iter().filter(|name| name.as_string().as_deref() != Some(key)) {
+        let value = js_sys::Reflect::get(options, &name).map_err(|_| JsError::new("invalid options"))?;
+        js_sys::Reflect::set(&copy, &name, &value).map_err(|_| JsError::new("invalid options"))?;
+    }
+    Ok(copy.into())
 }
 
 /// The files of a `kmzResources` option, `{ "icons/pin.png": Uint8Array }`, read from the options
@@ -708,7 +713,7 @@ impl Dataset {
     pub fn to_bytes(&self, filename: &str, options: JsValue) -> Result<Vec<u8>, JsError> {
         let resources = kmz_resources(&options)?;
         // Without the resource bytes, which JSON would write one entry per byte.
-        let o: WriteOptions = parse_options(&without_key(&options, "kmzResources"))?;
+        let o: WriteOptions = parse_options(&without_key(&options, "kmzResources")?)?;
         let transform_options = TransformOptions {
             allow_ballpark: o.allow_ballpark,
             only_best: o.only_best,
