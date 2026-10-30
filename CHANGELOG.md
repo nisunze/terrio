@@ -244,7 +244,8 @@
   `OGR_ORGANIZE_POLYGONS`, chosen with the `ORGANIZE_POLYGONS` open option (`--oo`,
   `VectorOpenOptions::shapefile`) or the `OGR_ORGANIZE_POLYGONS` (or `TERRIO_ORGANIZE_POLYGONS`)
   environment variable. `DEFAULT` groups rings by containment, whatever their winding, so files
-  that wind every ring one way keep their holes. `ONLY_CCW` stays the default, as in GDAL.
+  that wind every ring one way keep their holes. `ONLY_CCW` stays the default, as in GDAL. With
+  every method, the self-touching rings below are split first, as GDAL 3.13 does.
 - In polygon records of several parts, rings that touch themselves at a vertex
   to enclose a hole, which Esri allows, are now split into an exterior and
   holes when read, wherever the stored ring starts, as GDAL 3.13 does (GDAL

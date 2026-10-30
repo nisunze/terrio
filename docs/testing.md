@@ -537,6 +537,16 @@ tolerance rather than identical: a hole part enclosing an island gives the same 
 polygons, but GEOS `MakeValid` returns both rings in the other direction and from
 another start vertex.
 
+With GDAL 3.13 or later, the suite also reads every record with
+`OGR_ORGANIZE_POLYGONS` set to `DEFAULT`, `CCW_INNER_JUST_AFTER_CW_OUTER` and `SKIP`
+(terrio: `--oo ORGANIZE_POLYGONS=...`), which GDAL splits the rings for too. With GDAL
+3.13.3, 52 of these 54 cases are identical or within tolerance (the hole part enclosing
+an island again, polygon by polygon for `SKIP`). Two `CCW_INNER_JUST_AFTER_CW_OUTER`
+cases are known differences, reported as not compared: when GDAL splits a ring it
+switches to `DEFAULT`, but the rings before the split one have no area, so they
+enclose no other ring; terrio organizes the record as for `ONLY_CCW`. In one of them
+GDAL also takes a ring whose first vertex is repeated for a self-touching ring.
+
 ## PMTiles decoded-byte limits (#279)
 
 With `default-features = false, features = ["tiles"]`, native and WebAssembly

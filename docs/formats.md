@@ -412,7 +412,8 @@ reads it.
   of GDAL's other methods. `DEFAULT` groups rings by containment, whatever their winding, so
   files that wind every ring one way keep their holes. `CCW_INNER_JUST_AFTER_CW_OUTER` makes each
   counter-clockwise ring a hole of the clockwise ring before it, and `SKIP` makes every ring a
-  polygon.
+  polygon. With every method, a ring of a multi-part record that touches itself at a vertex to
+  enclose a hole is first split into its exterior and holes, as GDAL 3.13 does.
 - **OSM XML** (`.osm`) gives the same five layers as PBF, with tags in the file's order.
 - **KMZ archives** are written as GDAL writes them, a `doc.kml` linking to one document per
   layer under `layers/`. Files given as KMZ resources (Rust `KmzOptions::resources`, CLI

@@ -126,8 +126,19 @@ pub(crate) fn parse_options<T: serde::de::DeserializeOwned + Default>(options: &
     serde_json::from_str(&text).map_err(|e| JsError::new(&format!("options: {e}")))
 }
 
+/// A shallow copy of an options object without `key` (the object itself when it is not one).
+fn without_key(options: &JsValue, key: &str) -> JsValue {
+    use wasm_bindgen::JsCast;
+    if !options.is_object() {
+        return options.clone();
+    }
+    let copy = js_sys::Object::assign(&js_sys::Object::new(), options.unchecked_ref());
+    let _ = js_sys::Reflect::delete_property(&copy, &JsValue::from_str(key));
+    copy.into()
+}
+
 /// The files of a `kmzResources` option, `{ "icons/pin.png": Uint8Array }`, read from the options
-/// object itself: JSON writes each of their bytes as a separate entry.
+/// object itself rather than through JSON, which writes each of their bytes as a separate entry.
 fn kmz_resources(options: &JsValue) -> Result<Vec<(String, Vec<u8>)>, JsError> {
     use wasm_bindgen::JsCast;
     if !options.is_object() {
@@ -221,9 +232,6 @@ struct WriteOptions {
     select: Option<Vec<String>>,
     /// Keep at most this many features.
     limit: Option<usize>,
-    /// KMZ output: files packed into the archive, such as icon images, by the relative path the
-    /// styles refer to them with. Read by [`kmz_resources`], since JSON writes each of their bytes as an entry.
-    kmz_resources: Option<serde::de::IgnoredAny>,
     /// A raster window `[col_off, row_off, width, height]`.
     srcwin: Option<[usize; 4]>,
     /// A raster overview (0 is the largest).
@@ -698,8 +706,9 @@ impl Dataset {
     /// Text over 254 UTF-8 bytes and unsupported DBF values are explicit errors.
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self, filename: &str, options: JsValue) -> Result<Vec<u8>, JsError> {
-        let o: WriteOptions = parse_options(&options)?;
         let resources = kmz_resources(&options)?;
+        // Without the resource bytes, which JSON would write one entry per byte.
+        let o: WriteOptions = parse_options(&without_key(&options, "kmzResources"))?;
         let transform_options = TransformOptions {
             allow_ballpark: o.allow_ballpark,
             only_best: o.only_best,
@@ -709,7 +718,7 @@ impl Dataset {
         let t_srs = o.t_srs.as_deref().map(SpatialRef::parse).transpose().map_err(js_err)?;
         match &mut *self.inner.borrow_mut() {
             Inner::Raster(r) => {
-                if o.layers.is_some() || o.r#where.is_some() || o.select.is_some() || o.limit.is_some() || o.kmz_resources.is_some() {
+                if o.layers.is_some() || o.r#where.is_some() || o.select.is_some() || o.limit.is_some() || !resources.is_empty() {
                     return Err(JsError::new("layers, where, select, limit and kmzResources apply to vector datasets"));
                 }
                 let driver = o

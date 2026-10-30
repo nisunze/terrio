@@ -366,10 +366,10 @@ impl PyLayer {
         py: Python<'_>,
         path: &str,
         driver: Option<&str>,
-        kmz_resources: Option<std::collections::BTreeMap<String, Vec<u8>>>,
+        kmz_resources: Option<std::collections::BTreeMap<String, pyo3::pybacked::PyBackedBytes>>,
     ) -> PyResult<()> {
         let mut options = crate::ops::vector_write_options(driver)?;
-        options.kmz.resources = kmz_resources.into_iter().flatten().collect();
+        options.kmz.resources = kmz_resources.into_iter().flatten().map(|(path, bytes)| (path, bytes.to_vec())).collect();
         let layers = std::slice::from_ref(&self.inner);
         py.detach(|| terrio::write_vector(layers, path, &options)).py()
     }
@@ -393,10 +393,10 @@ impl PyLayer {
         py: Python<'py>,
         filename: &str,
         driver: Option<&str>,
-        kmz_resources: Option<std::collections::BTreeMap<String, Vec<u8>>>,
+        kmz_resources: Option<std::collections::BTreeMap<String, pyo3::pybacked::PyBackedBytes>>,
     ) -> PyResult<Bound<'py, PyBytes>> {
         let mut options = crate::ops::vector_write_options(driver)?;
-        options.kmz.resources = kmz_resources.into_iter().flatten().collect();
+        options.kmz.resources = kmz_resources.into_iter().flatten().map(|(path, bytes)| (path, bytes.to_vec())).collect();
         let layers = std::slice::from_ref(&self.inner);
         let bytes = py.detach(|| terrio::memory::write_vector_bytes(layers, filename, &options)).py()?;
         Ok(PyBytes::new(py, &bytes))
@@ -465,10 +465,10 @@ impl PyVectorDataset {
         py: Python<'_>,
         path: &str,
         driver: Option<&str>,
-        kmz_resources: Option<std::collections::BTreeMap<String, Vec<u8>>>,
+        kmz_resources: Option<std::collections::BTreeMap<String, pyo3::pybacked::PyBackedBytes>>,
     ) -> PyResult<()> {
         let mut options = crate::ops::vector_write_options(driver)?;
-        options.kmz.resources = kmz_resources.into_iter().flatten().collect();
+        options.kmz.resources = kmz_resources.into_iter().flatten().map(|(path, bytes)| (path, bytes.to_vec())).collect();
         let layers = self.layer_copies(py);
         py.detach(|| terrio::write_vector(&layers, path, &options)).py()
     }

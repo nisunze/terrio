@@ -578,7 +578,9 @@ def suite_shapefile_rings(ctx):
                   "18 synthetic records written by OGR, read by OGR and converted by terrio to GeoPackage. "
                   "Identical: the same ISO WKB bytes. Within tolerance: equal under GEOS and both valid, with rings "
                   "in another direction or from another start. GDAL 3.12 keeps these rings as stored; with it, "
-                  "terrio is compared with GDAL 3.13.1's reading, frozen in the script.")
+                  "terrio is compared with GDAL 3.13.1's reading, frozen in the script. With GDAL 3.13 or later, "
+                  "each record is also read with the DEFAULT, CCW_INNER_JUST_AFTER_CW_OUTER and SKIP methods of "
+                  "OGR_ORGANIZE_POLYGONS; known differences are reported as not compared.")
     if missing_modules("osgeo"):
         suite.skipped = "needs GDAL Python bindings"
         return suite

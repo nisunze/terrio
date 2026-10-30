@@ -241,14 +241,18 @@ fn parse_shape(rec: &[u8], method: OrganizePolygons) -> Option<Geometry> {
     })
 }
 
-/// Groups a polygon record's rings into polygons by `method`.
+/// Groups a polygon record's rings into polygons by `method`. Since 3.13, GDAL first splits the
+/// self-touching rings of a record of several parts, whatever the method (see [`split_parts`]).
 fn organize(parts: Vec<Vec<Coord>>, method: OrganizePolygons) -> Option<Geometry> {
     let clockwise = |cs: &[Coord]| Ring::new(cs.to_vec()).signed_area() <= 0.0;
     match method {
         OrganizePolygons::OnlyCcw => Some(organize_rings(parts)),
-        OrganizePolygons::Containment => super::polygons_from_rings(parts),
-        // As GDAL, which takes this method only when the first ring is clockwise.
-        OrganizePolygons::CcwInnerJustAfterCwOuter if !parts.first().is_some_and(|cs| clockwise(cs)) => Some(organize_rings(parts)),
+        OrganizePolygons::Containment => super::polygons_from_rings(split_parts(parts).0),
+        // As GDAL, which takes this method only when the first ring is clockwise, and which, when
+        // it splits a ring, organizes them as it does for ONLY_CCW.
+        OrganizePolygons::CcwInnerJustAfterCwOuter if !parts.first().is_some_and(|cs| clockwise(cs)) || split_parts(parts.clone()).1 => {
+            Some(organize_rings(parts))
+        }
         OrganizePolygons::CcwInnerJustAfterCwOuter => {
             let mut polygons: Vec<(Ring, Vec<Ring>)> = Vec::new();
             for cs in parts {
@@ -260,8 +264,34 @@ fn organize(parts: Vec<Vec<Coord>>, method: OrganizePolygons) -> Option<Geometry
             }
             Some(polygon_or_multi(polygons))
         }
-        OrganizePolygons::Skip => Some(polygon_or_multi(parts.into_iter().map(|cs| (open_ring(cs), Vec::new())).collect())),
+        OrganizePolygons::Skip => Some(polygon_or_multi(split_parts(parts).0.into_iter().map(|cs| (open_ring(cs), Vec::new())).collect())),
     }
+}
+
+/// The rings of a record as GDAL's `organizePolygons` takes them since 3.13: in a record of
+/// several parts, each ring that touches itself to enclose loops (see [`split_self_touching`]) is
+/// replaced by its pieces, after the other rings. Also whether a ring was split.
+fn split_parts(parts: Vec<Vec<Coord>>) -> (Vec<Vec<Coord>>, bool) {
+    if parts.len() < 2 {
+        return (parts, false);
+    }
+    let mut rings = Vec::with_capacity(parts.len());
+    let mut pieces = Vec::new();
+    for mut cs in parts {
+        if cs.len() > 1 && (cs[0].x, cs[0].y) == (cs[cs.len() - 1].x, cs[cs.len() - 1].y) {
+            cs.pop();
+        }
+        match split_self_touching(cs) {
+            (ring, loops) if loops.is_empty() => rings.push(ring),
+            (ring, loops) => {
+                pieces.push(ring);
+                pieces.extend(loops);
+            }
+        }
+    }
+    let split = !pieces.is_empty();
+    rings.extend(pieces);
+    (rings, split)
 }
 
 /// A ring without the closing vertex its record repeats.
@@ -1204,6 +1234,26 @@ mod tests {
         }
         assert!(ShapefileOptions::default().set("ORGANIZE_POLYGONS", "SOMETIMES").is_err());
         assert!(!ShapefileOptions::default().set("ENCODING", "UTF-8").unwrap());
+    }
+
+    #[test]
+    fn splits_self_touching_rings_for_every_method() {
+        // An Esri hole hanging from the bottom edge, and a stored hole: GDAL 3.13.3 splits the
+        // ring whatever OGR_ORGANIZE_POLYGONS is, putting its pieces after the other rings.
+        let esri = [(0., 0.), (0., 10.), (10., 10.), (10., 0.), (5., 0.), (6., 2.), (4., 2.), (5., 0.)];
+        let hole = [(2., 6.), (3., 6.), (3., 7.), (2., 7.)];
+        let rest = vec![(0., 10.), (10., 10.), (10., 0.), (5., 0.), (0., 0.)];
+        let lp = vec![(6., 2.), (4., 2.), (5., 0.)];
+        let polygon = vec![vec![rest.clone(), hole.to_vec(), lp.clone()]];
+        for (method, want) in [
+            (OrganizePolygons::OnlyCcw, polygon.clone()),
+            (OrganizePolygons::Containment, polygon.clone()),
+            (OrganizePolygons::CcwInnerJustAfterCwOuter, polygon),
+            (OrganizePolygons::Skip, vec![vec![hole.to_vec()], vec![rest], vec![lp]]),
+        ] {
+            let g = organize(vec![closed(&esri), closed(&hole)], method).unwrap();
+            assert_eq!(polygon_rings(&g), want, "{method:?}");
+        }
     }
 
     #[test]
